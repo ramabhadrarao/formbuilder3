@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { GridFSBucket } from 'mongodb';
+import { Readable } from 'stream';
 
 let bucket;
 
@@ -8,6 +9,7 @@ mongoose.connection.once('open', () => {
   bucket = new GridFSBucket(mongoose.connection.db, {
     bucketName: 'uploads'
   });
+  console.log('GridFS bucket initialized');
 });
 
 export const uploadFile = async (req, res) => {
@@ -19,7 +21,17 @@ export const uploadFile = async (req, res) => {
       });
     }
 
+    if (!bucket) {
+      return res.status(500).json({
+        success: false,
+        message: 'File storage not initialized'
+      });
+    }
+
     const { originalname, mimetype, buffer, size } = req.file;
+    
+    // Create a readable stream from buffer
+    const readableStream = Readable.from(buffer);
     
     // Create upload stream
     const uploadStream = bucket.openUploadStream(originalname, {
@@ -37,7 +49,7 @@ export const uploadFile = async (req, res) => {
       res.status(201).json({
         success: true,
         data: {
-          id: uploadStream.id,
+          id: uploadStream.id.toString(),
           filename: originalname,
           mimetype,
           size
@@ -54,8 +66,8 @@ export const uploadFile = async (req, res) => {
       });
     });
 
-    // Write file buffer to stream
-    uploadStream.end(buffer);
+    // Pipe the buffer to GridFS
+    readableStream.pipe(uploadStream);
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -66,25 +78,32 @@ export const uploadFile = async (req, res) => {
 
 export const getFile = async (req, res) => {
   try {
+    if (!bucket) {
+      return res.status(500).json({
+        success: false,
+        message: 'File storage not initialized'
+      });
+    }
+
     const fileId = new mongoose.Types.ObjectId(req.params.id);
     
     // Get file info
-    const file = await bucket.find({ _id: fileId }).toArray();
+    const files = await bucket.find({ _id: fileId }).toArray();
     
-    if (!file || file.length === 0) {
+    if (!files || files.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'File not found'
       });
     }
 
-    const fileDoc = file[0];
+    const file = files[0];
     
     // Set response headers
     res.set({
-      'Content-Type': fileDoc.metadata.mimetype,
-      'Content-Length': fileDoc.length,
-      'Content-Disposition': `inline; filename="${fileDoc.filename}"`
+      'Content-Type': file.metadata?.mimetype || 'application/octet-stream',
+      'Content-Length': file.length,
+      'Content-Disposition': `inline; filename="${file.filename}"`
     });
 
     // Stream file to response
@@ -109,12 +128,19 @@ export const getFile = async (req, res) => {
 
 export const deleteFile = async (req, res) => {
   try {
+    if (!bucket) {
+      return res.status(500).json({
+        success: false,
+        message: 'File storage not initialized'
+      });
+    }
+
     const fileId = new mongoose.Types.ObjectId(req.params.id);
     
     // Check if file exists
-    const file = await bucket.find({ _id: fileId }).toArray();
+    const files = await bucket.find({ _id: fileId }).toArray();
     
-    if (!file || file.length === 0) {
+    if (!files || files.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'File not found'

@@ -28,6 +28,75 @@ api.interceptors.response.use(
   }
 );
 
+// Types
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  permissions: string[];
+  organization: string;
+  lastLogin?: string;
+  createdAt: string;
+}
+
+export interface Form {
+  _id: string;
+  title: string;
+  code?: string;
+  description: string;
+  type: 'standard' | 'master' | 'detail' | 'wizard' | 'survey';
+  category?: string;
+  fields: any[];
+  pages?: any[];
+  settings: any;
+  styling: any;
+  permissions: any;
+  workflow?: any;
+  masterForm?: {
+    formId: string;
+    linkField: string;
+  };
+  createdBy: any;
+  isActive: boolean;
+  isTemplate?: boolean;
+  version: number;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Submission {
+  _id: string;
+  form: any;
+  submissionNumber?: string;
+  data: any;
+  files?: any[];
+  nestedSubmissions?: any[];
+  status: string;
+  priority: string;
+  currentStage: string;
+  submittedBy: any;
+  parentSubmission?: string;
+  masterSubmission?: string;
+  workflowHistory: any[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Workflow {
+  _id: string;
+  name: string;
+  description: string;
+  stages: any[];
+  initialStage: string;
+  finalStages: string[];
+  isActive: boolean;
+  version: number;
+  createdBy: any;
+  createdAt: string;
+}
+
 // Auth endpoints
 export const authAPI = {
   login: (email: string, password: string) =>
@@ -59,7 +128,14 @@ export const formsAPI = {
 
   duplicate: (id: string) => api.post(`/forms/${id}/duplicate`),
 
-  getStats: () => api.get('/forms/stats')
+  getStats: () => api.get('/forms/stats'),
+
+  getSubmissions: (id: string, params?: any) => 
+    api.get(`/forms/${id}/submissions`, { params }),
+
+  createTemplate: (id: string) => api.post(`/forms/${id}/template`),
+
+  getTemplates: (params?: any) => api.get('/forms/templates', { params })
 };
 
 // Submissions endpoints
@@ -74,9 +150,16 @@ export const submissionsAPI = {
 
   delete: (id: string) => api.delete(`/submissions/${id}`),
 
-  updateStatus: (id: string, data: any) => api.put(`/submissions/${id}/status`, data),
+  updateStatus: (id: string, data: any) => 
+    api.put(`/submissions/${id}/status`, data),
 
-  getStats: () => api.get('/submissions/stats')
+  addComment: (id: string, data: any) => 
+    api.post(`/submissions/${id}/comments`, data),
+
+  getStats: () => api.get('/submissions/stats'),
+
+  export: (params?: any) => 
+    api.get('/submissions/export', { params, responseType: 'blob' })
 };
 
 // Workflows endpoints
@@ -116,6 +199,29 @@ export const filesAPI = {
   getById: (id: string) => api.get(`/files/${id}`, { responseType: 'blob' }),
 
   delete: (id: string) => api.delete(`/files/${id}`)
+};
+
+// Lookup endpoints (for lookup fields)
+export const lookupAPI = {
+  searchForms: (formId: string, query: string) => 
+    api.get(`/lookup/forms/${formId}/search`, { params: { q: query } }),
+
+  getFormData: (formId: string) => 
+    api.get(`/lookup/forms/${formId}/data`),
+
+  searchAPI: (endpoint: string, params: any) => 
+    api.get(`/lookup/api`, { params: { endpoint, ...params } })
+};
+
+// Analytics endpoints
+export const analyticsAPI = {
+  getFormAnalytics: (formId: string, params?: any) => 
+    api.get(`/analytics/forms/${formId}`, { params }),
+
+  getSubmissionAnalytics: (params?: any) => 
+    api.get('/analytics/submissions', { params }),
+
+  getDashboardStats: () => api.get('/analytics/dashboard')
 };
 
 export default api;

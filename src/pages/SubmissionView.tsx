@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, Calendar, Clock, FileText, Download, MessageSquare, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import { submissionsAPI } from '../services/api';
+import { ArrowLeft, User, Calendar, Clock, FileText, Download, MessageSquare, CheckCircle, XCircle, AlertTriangle, File } from 'lucide-react';
+import { submissionsAPI, filesAPI } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 interface Submission {
@@ -33,6 +33,7 @@ interface Submission {
   updatedAt: string;
   files?: Array<{
     fieldId: string;
+    fileId: string;
     filename: string;
     originalName: string;
     size: number;
@@ -83,6 +84,31 @@ const SubmissionView: React.FC = () => {
     }
   };
 
+  const handleFileDownload = async (fileId: string, filename: string) => {
+    try {
+      const response = await filesAPI.getById(fileId);
+      
+      // Create a blob from the response
+      const blob = new Blob([response.data]);
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element and click it
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
+  };
+
   const renderFieldValue = (field: any, value: any) => {
     if (value === null || value === undefined || value === '') {
       return <span className="text-gray-400 italic">No data</span>;
@@ -99,12 +125,18 @@ const SubmissionView: React.FC = () => {
         const file = submission?.files?.find(f => f.fieldId === field.id);
         if (file) {
           return (
-            <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-blue-500" />
-              <span>{file.originalName}</span>
-              <span className="text-sm text-gray-500">({(file.size / 1024).toFixed(1)} KB)</span>
-              <button className="text-blue-600 hover:text-blue-800 text-sm">
-                <Download className="h-4 w-4" />
+            <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <File className="h-5 w-5 text-blue-500 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">{file.originalName || file.filename}</p>
+                <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
+              </div>
+              <button 
+                onClick={() => handleFileDownload(file.fileId, file.filename)}
+                className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Download file"
+              >
+                <Download className="h-5 w-5" />
               </button>
             </div>
           );
